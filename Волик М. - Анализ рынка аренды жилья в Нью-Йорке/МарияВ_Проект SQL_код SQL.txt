@@ -1,0 +1,181 @@
+--1. Найти максимальную и минимальную цену в каждом районе
+--Вывод: Наибольшее количество жилья для аренды представлено в Manhattan и  Brooklyn, следом идет Queens
+--В этих трех районах представлено самое дорогое жилье до 10 000$ за ночь.
+--При этом минимальные цены практически одинаковы среди всех районов.
+--Наиболее дешевый район Bronx.
+
+SELECT neighbourhood_group,
+COUNT() as num_accomodation,
+max(price) as max_price,
+min(price) as min_price
+FROM airbnb_table at2 
+GROUP BY neighbourhood_group 
+ORDER BY num_accomodation DESC
+
+
+-- Количество жилья с ценами ниже 500$ за ночь
+--Отметим, что большинство жилья представлено по цене ниже 500$ за ночь.
+
+SELECT neighbourhood_group,
+SUM(CASE 
+	WHEN price < 500 THEN 1
+END) as num_accomodation_below_500,
+COUNT() AS total_accomodation,
+(ROUND(CAST(SUM(CASE 
+	WHEN price < 500 THEN 1
+END) AS FLOAT) / CAST(COUNT() AS FLOAT),2) *100) || '%' AS share,
+max(price) as max_price
+FROM airbnb_table at2 
+GROUP BY neighbourhood_group 
+ORDER BY num_accomodation_below_500 DESC
+
+SELECT neighbourhood_group,
+COUNT() as num_accomodation,
+max(price) as max_price
+FROM airbnb_table at2 
+WHERE price < 500
+GROUP BY neighbourhood_group 
+ORDER BY num_accomodation DESC
+
+
+--2. Районы в разбивке по видам жилья с указанием средней цены района и в сравнении со средней ценой на вид жилья
+--Вывод: На основе различий в средней цене по виду жилья и в районе можно сделать вывод:
+--Снимать целую квартиру или дом выгоднее в Bronx, Brooklyn и Staten Island
+--Снимать комнату также выгоднее в Brooklyn, Manhattan и Quenns
+--Снимать совместную комнату в целом выгоднее всего, т.к. различия в ценах по районам и средними минимальны. 
+
+SELECT room_type,
+neighbourhood_group,
+AVG(price) OVER (PARTITION BY room_type, neighbourhood_group ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as mean_neighbourhood_price,
+ROUND(AVG(price) OVER (PARTITION BY room_type ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)) as mean_room_price,
+ROUND((AVG(price) OVER (PARTITION BY room_type, neighbourhood_group ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)) 
+- (AVG(price) OVER (PARTITION BY room_type ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))) as difference,
+CASE
+	WHEN ROUND((AVG(price) OVER (PARTITION BY room_type, neighbourhood_group ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)) 
+- (AVG(price) OVER (PARTITION BY room_type ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))) < 0 THEN "выгодно"
+	ELSE "не выгодно"
+END as "Выгодно снимать?"
+FROM airbnb_table
+GROUP BY 1, 2
+ORDER BY 1, 3 DESC
+
+--3. Расчет прогнозной выручки арендаторов по формуле цена за ночь * минимальное количество ночей для бронирования * количество отзывов в месяц
+--Вывод: Больше всего зарабатывают в месяц арендодадоры в Manhattan, на втором месте - Brooklyn.
+--При этом высокий доход получают как те арендодатели, которые сдают по высоким ценам свыше 1000$ за ночь, так и те кто сдает менее, чем за 500$, где превалируют последние.
+--Можно отметить, что количество дохода коррелирует с количеством жилья в данных районах (запрос 1), т.е. популярность района влияет.
+--Также отметим, что количество объектов у арендодатора не влияет на сумму дохода. Первые позиции рейтинга занимают арендодаторы с 1-2 объектами.
+--Основное влияние на доход скорее оказывает минимальное количество дней аренды. В основном, объекты в топ-6 по районам предлагаются для аренды на месяц и дольше.
+WITH sub_rating AS (
+SELECT host_id, 
+host_name,
+calculated_host_listings_count as number_accomodation,
+neighbourhood_group,
+name,
+reviews_per_month,
+minimum_nights,
+MAX(price) as max_price,
+ROUND(price * minimum_nights * reviews_per_month) as earnings_per_month,
+ROW_NUMBER() OVER (PARTITION BY neighbourhood_group 
+			ORDER BY ROUND(price * minimum_nights * reviews_per_month) DESC) as rating
+FROM airbnb_table at2 
+WHERE reviews_per_month is NOT NULL
+GROUP BY 1, 4
+ORDER BY 9 DESC
+)
+
+SELECT host_name,
+number_accomodation,
+neighbourhood_group,
+name,
+reviews_per_month,
+minimum_nights,
+max_price,
+earnings_per_month,
+rating
+FROM sub_rating
+WHERE rating < 4
+
+--4. ТОП-5 жилья по районам в сравнение со средней ценой района
+--Если брать количество отзывов в месяц как прокси популярности жилья, то можно выявить следующее:
+--Больше всего отзывов получили объекты с достаточно низкими ценами (менее 200$) в сравнении с максимальной ценой за ночь.
+--Самый дорогой объект из популярных находится в Manhattan - 500$.
+--При сравнении цен популярных объектов со средними по району, у большинства объектов цены ниже средней.
+-- Таким образом, цена влияет на популярность объекта.
+--Если сравнивать с выгрузкой из запроса 3 про уровень дохода владельцев объектов. 
+--То отметим, что популярность объекта не всегда позволяет владельцам зарабатывать высокие доходы, в особенности в самых высокодоходных районах как Manhattan, Brooklyn.
+WITH sub_rating AS (
+SELECT ROW_NUMBER() OVER (PARTITION BY neighbourhood_group ORDER BY reviews_per_month DESC) as rating,
+neighbourhood_group,
+name, 
+reviews_per_month,
+price,
+ROUND(AVG(price) OVER (PARTITION BY neighbourhood_group ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)) as avg_neighbourhood_price
+FROM airbnb_table at2 
+)
+
+SELECT *,
+CASE 
+	WHEN price > avg_neighbourhood_price THEN 'да'
+END 'Цена выше средней?'
+FROM sub_rating
+WHERE rating < 6
+
+--5. Поиск по словам из названия объекта
+--Проанализируем названия объектов по возможным прилагательным для описания объекта.
+--5тысяч объектов по мнению арендодателей удобные.
+--почти 4 тысячи объектов просторные и 2,5 тысячи красивые и близкие к чему-то.
+--всего 65 объектов были охарактеризованы как дешевые.
+WITH sub_review AS (
+SELECT INSTR(LOWER((name)), 'cozy') cozy,
+INSTR(LOWER((name)), 'amazing') amazing,
+INSTR(LOWER((name)), 'beautiful') beautiful,
+INSTR(LOWER((name)), 'quiet') quiet,
+INSTR(LOWER((name)), 'spacious') spacious,
+INSTR(LOWER((name)), 'near') near,
+INSTR(LOWER((name)), 'center') center,
+INSTR(LOWER((name)), 'cheap') cheap,
+INSTR(LOWER((name)), 'best') best,
+INSTR(LOWER((name)), 'luxurious') luxurious
+FROM airbnb_table at2
+)
+
+SELECT 'cosy' as Word, COUNT(cozy) as count_w
+FROM sub_review
+WHERE cozy > 0
+UNION 
+SELECT 'amazing', COUNT(amazing)
+FROM sub_review
+WHERE amazing > 0
+UNION 
+SELECT 'beautiful', COUNT(beautiful)
+FROM sub_review
+WHERE beautiful > 0
+UNION 
+SELECT 'quiet', COUNT(quiet)
+FROM sub_review
+WHERE quiet > 0
+UNION 
+SELECT 'spacious', COUNT(spacious)
+FROM sub_review
+WHERE spacious > 0
+UNION 
+SELECT 'near', COUNT(near)
+FROM sub_review
+WHERE near > 0
+UNION 
+SELECT 'center', COUNT(center)
+FROM sub_review
+WHERE center > 0
+UNION 
+SELECT 'cheap', COUNT(cheap)
+FROM sub_review
+WHERE cheap > 0
+UNION 
+SELECT 'best', COUNT(best)
+FROM sub_review
+WHERE best > 0
+UNION 
+SELECT 'luxurious', COUNT(luxurious)
+FROM sub_review
+WHERE luxurious > 0
+ORDER BY count_w DESC

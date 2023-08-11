@@ -1,0 +1,129 @@
+-- Топ-10 фильмов с наибольшей выручкой
+
+SELECT Series_Title, Genre, Gross
+FROM project_movies 
+ORDER BY Gross DESC 
+LIMIT 10
+
+-- Фильмы с каким рейтингом заработали больше всего денег в прокате? 
+SELECT DISTINCT IMDB_Rating
+FROM project_movies
+ORDER BY IMDB_Rating
+
+SELECT 
+	CASE 
+		WHEN IMDB_Rating >= 7.5 AND IMDB_Rating < 8 THEN '7.5 - 8'
+		WHEN IMDB_Rating >= 8 AND IMDB_Rating < 8.5 THEN '8 - 8.5'
+		WHEN IMDB_Rating >= 8.5 AND IMDB_Rating < 9 THEN '8.5 - 9'
+		WHEN IMDB_Rating >= 9 AND IMDB_Rating < 9.5 THEN '9 - 9.5'
+	ELSE ''
+	END as IMDB_rating_bucket, 
+	ROUND(AVG(Gross),0) as avg_gross
+FROM project_movies 
+GROUP BY IMDB_rating_bucket
+ORDER BY avg_gross DESC 
+
+-- Фильмы каких режиссеров заработали больше всего денег в прокате? 
+SELECT 
+	Director, 
+	ROUND(AVG(Gross),0) as avg_gross
+FROM project_movies 
+GROUP BY Director
+ORDER BY avg_gross DESC 
+LIMIT 10
+
+SELECT 
+	Director,
+	Series_Title, 
+	Gross
+FROM project_movies 
+WHERE Director IN ('Anthony Russo', 'Gareth Edwards', 'J.J. Abrams')
+ORDER BY Director, Gross
+
+-- Фильмы с каким сертификатом (возрастным рейтингом) заработали больше всего денег в прокате?
+SELECT 
+	Certificate, 
+	ROUND(AVG(Gross),0) as avg_gross
+FROM project_movies 
+GROUP BY Certificate
+ORDER BY avg_gross DESC 
+LIMIT 10
+
+SELECT 
+	Certificate, 
+	COUNT(Gross) as count_movies
+FROM project_movies 
+GROUP BY Certificate
+ORDER BY count_movies DESC 
+LIMIT 10
+
+-- Фильмы с какой длительностью заработали больше всего денег в прокате? 
+-- посмотрим на все значения, чтобы определить бакеты
+SELECT DISTINCT
+	Runtime
+FROM project_movies 
+ORDER BY Runtime
+
+SELECT 
+	CASE 
+		WHEN Runtime < 60 THEN 'менее часа'
+		WHEN Runtime >= 60 AND Runtime < 90 THEN 'от часа до 1,5 часов'
+		WHEN Runtime >= 90 AND Runtime < 120 THEN 'от 1,5 часов до 2 часов'
+		WHEN Runtime >= 120 AND Runtime < 180 THEN 'от 2 часов до 2,5 часов'
+	ELSE 'более 2,5 часов'
+	END as runtime_bucket, 
+	ROUND(AVG(Gross),0) as avg_gross
+FROM project_movies 
+GROUP BY runtime_bucket
+ORDER BY avg_gross DESC 
+
+-- Проверим сколько фильмов в каждом бакете
+SELECT 
+	CASE 
+		WHEN Runtime < 60 THEN 'менее часа'
+		WHEN Runtime >= 60 AND Runtime < 90 THEN 'от часа до 1,5 часов'
+		WHEN Runtime >= 90 AND Runtime < 120 THEN 'от 1,5 часов до 2 часов'
+		WHEN Runtime >= 120 AND Runtime < 180 THEN 'от 2 часов до 2,5 часов'
+	ELSE 'более 2,5 часов'
+	END as runtime_bucket, 
+	COUNT(Gross) as count_movies
+FROM project_movies 
+GROUP BY runtime_bucket
+ORDER BY count_movies DESC 
+
+SELECT 
+	Runtime,
+	Series_Title, 
+	Gross
+FROM project_movies 
+WHERE Runtime > 180
+ORDER BY Runtime, Gross
+
+-- Фильмы какого года заработали больше всего денег в прокате?
+SELECT DISTINCT
+	Released_Year
+FROM project_movies 
+ORDER BY Released_Year
+
+-- таблица для визуализации в питоне
+CREATE TABLE avg_gross_by_year AS 
+SELECT 
+	Released_Year, 
+	ROUND(AVG(Gross),0) as avg_gross
+FROM project_movies 
+GROUP BY Released_Year
+ORDER BY avg_gross DESC 
+
+-- Создаю таблицу с данными по категориям рейтинга
+-- таблица для визуализации в питоне
+CREATE TABLE df_with_rating_bucket AS
+SELECT 
+	*,
+	CASE 
+		WHEN IMDB_Rating >= 7.5 AND IMDB_Rating < 8 THEN '7.5 - 8'
+		WHEN IMDB_Rating >= 8 AND IMDB_Rating < 8.5 THEN '8 - 8.5'
+		WHEN IMDB_Rating >= 8.5 AND IMDB_Rating < 9 THEN '8.5 - 9'
+		WHEN IMDB_Rating >= 9 AND IMDB_Rating < 9.5 THEN '9 - 9.5'
+	ELSE ''
+	END as IMDB_rating_bucket
+FROM project_movies
