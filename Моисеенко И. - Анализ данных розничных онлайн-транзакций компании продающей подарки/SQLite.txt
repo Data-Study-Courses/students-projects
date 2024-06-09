@@ -1,0 +1,135 @@
+
+--анализ отмененных товаров, это те где invoice_no начинается с буквы С 
+SELECT 
+    description,
+    count(quantity) AS canceled_count
+FROM
+    online_retail
+WHERE
+    invoice_no LIKE 'C%'
+GROUP BY
+    description
+ORDER BY
+    canceled_count DESC;
+
+   --какой покупатель чаще всего совершал отмену 
+   SELECT 
+    customer_id,     
+    COUNT(*) AS canceled_count
+FROM
+    online_retail
+WHERE
+    invoice_no LIKE 'C%' and customer_id != 'Unknown'
+GROUP BY
+    customer_id
+ORDER BY
+    canceled_count DESC
+
+   
+--топ 10 самых популярных товаров 
+   SELECT 
+    description,
+    sum(quantity) AS total_quantity
+FROM 
+    online_retail
+GROUP BY 
+    description
+ORDER BY 
+    total_quantity DESC
+LIMIT 10;
+
+
+-- анализируем время совершения покупки 
+--1) дата 
+SELECT strftime('%Y-%m-%d', invoice_date) AS date,
+       SUM(quantity) AS total_quantity 
+FROM online_retail
+GROUP BY date
+ORDER BY total_quantity DESC
+LIMIT 10;
+
+--2) по неделям 
+SELECT strftime('%Y-%W', invoice_date) AS week,
+       SUM(quantity) AS total_quantity 
+FROM online_retail
+GROUP BY week
+ORDER BY total_quantity DESC
+LIMIT 20;
+
+--3) по месяцам 
+SELECT strftime('%Y', invoice_date) AS year,
+       strftime('%Y-%m', invoice_date) AS month,
+       SUM(quantity) AS total_quantity
+FROM online_retail
+GROUP BY year, month
+ORDER BY year, total_quantity, month;
+--
+--4) по часам кол-во  
+SELECT strftime('%H', invoice_date) AS hour,
+        SUM(quantity) AS total_quantity
+FROM online_retail
+GROUP BY hour
+ORDER BY total_quantity DESC;
+
+--5) по часам сумма продаж 
+SELECT strftime('%H', invoice_date) AS hour,
+        SUM(total_amount) AS amount
+FROM online_retail
+GROUP BY hour
+ORDER BY amount DESC;
+
+--5 посчитаем среднее количество покупок в будние и выходные дни 
+SELECT
+    CASE
+        WHEN strftime('%w', invoice_date) IN ('0', '6') THEN 'weekend'
+        ELSE 'weekday'
+    END AS dayofweek,
+    AVG(quantity) AS avg_quantity
+FROM
+    online_retail
+GROUP BY
+    dayofweek;
+
+-- 6 зависят ли продажи от дня недели/выходных дней
+   SELECT
+    CASE
+        WHEN strftime('%w', invoice_date) IN ('0', '6') THEN 'weekend'
+        ELSE 'weekday'
+    END AS day_of_week,
+    SUM(total_amount) AS total_sales
+FROM
+    online_retail
+  GROUP BY
+     day_of_week;
+    
+    
+--посчитаем выручку по странам:
+SELECT country,
+       SUM(total_amount) AS revenue
+FROM online_retail
+GROUP BY country
+ORDER BY revenue DESC;
+
+-- общая выручка, полученного от различных категорий товаров
+SELECT
+    description,
+    sum(total_amount) as revenue 
+FROM
+    online_retail
+GROUP BY
+    description
+ORDER BY
+    revenue DESC
+   limit 20;
+
+--кол-во продаж за все время 
+  SELECT
+    description,
+    sum(quantity) AS total_quantity
+FROM
+    online_retail
+GROUP BY
+    description
+ORDER BY
+    total_quantity DESC
+   limit 20;

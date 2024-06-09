@@ -1,0 +1,89 @@
+get_staff - возвращает dict с информацией о персонале
+get_staff_info - возвращает dict с информацией о конкретном персонале
+get_services - возвращает список услуг для конкретного персонала и даты
+get_service_info - возвращает dict с информацией о конкретной услуге
+get_available_days - возвращает все доступных дней для конкретного персонала и услуг
+get_available_times - возвращает все доступные временные интервалы в определенный день для персонала и услуг
+
+ДАННЫЕ КЛИЕНТОВ
+
+Yclients API не может возвращать всех клиентов одновременно и возвращается группами.
+максимального размера 200. Эти группы называются страницами, и вы можете выбрать, сколько клиентов он вернет
+
+get_clients_data:
+        :param clients_per_page: размер страницы
+        :return: данные всех клиентов в системе
+        Параметры клиентов:
+            'id', 'name', 'phone', 'email', 'card',
+            'birth_date', 'comment', 'discount', 'visits',
+            'sex_id', 'sex', 'sms_check', 'sms_bot', 'spent',
+            'paid', 'balance', 'importance_id', 'importance',
+            'categories', 'last_change_date', 'custom_fields'
+
+parse_clients_data:
+        :param clients_data_list: список dict с данными клиентов
+        :return: pd.Dataframe с данными клиентов
+
+ДАННЫЕ ПО ПОСЕЩЕНИЯМ
+
+get_visits_for_client:
+        :param cid: id клиента
+        :param visits_per_page: размер страницы
+        :param session: По умолчанию нет, но если нас посещают несколько клиентов, 
+        мы хотим использовать один и тот же сеанс для всех из них.
+        :return: данные всех посещений клиентского cid
+            параметры посещений:
+                 id, company_id, staff_id, services, goods_transactions,
+                 staff, client, comer, clients_count, date, datetime,
+                 create_date, comment, online, visit_attendance, attendance,
+                 confirmed, seance_length, length, sms_before, sms_now,
+                 sms_now_text, email_now, notified, master_request, api_id,
+                 from_url, review_requested, visit_id, created_user_id,
+                 deleted, paid_full, prepaid, prepaid_confirmed,
+                 last_change_date, custom_color, custom_font_color, record_labels,
+                 activity_id, custom_fields, documents, is_sale_bill_printed,
+            Также некоторые поля содержат дополнительную информацию.:
+            - client is a dictionary with parameters:
+                'id', 'name', 'phone', 'card', 'email',
+                'success_visits_count', 'fail_visits_count', 'discount'
+            - documents include list of dictionaries with parameters:
+                'id', 'type_id', 'storage_id', 'user_id', 'company_id',
+                'number', 'comment', 'date_created', 'category_id',
+                'visit_id', 'record_id', 'type_title'
+            - services include list of dictionaries with parameters:
+                'id', 'title', 'cost', 'manual_cost', 'cost_per_unit',
+                'discount', 'first_cost', 'amount'
+            - staff is a dictionary with parameters:
+                'id', 'api_id', 'name', 'specialization', 'position',
+                'avatar', 'avatar_big', 'rating', 'votes_count'
+            - position is a dictionary with parameters:
+                'id', 'title'
+
+get_visits_data_for_clients_list:
+        Оболочка функции get_visits_for_client для нескольких клиентов
+        :param cids_list: список id клиентов
+        :param visits_per_page: size of the page
+        :return: словарь с идентификатором клиента в качестве ключа и списком посещений в качестве значения
+
+get_attended_visits_for_client:
+        Объяснение посещаемости от Yclient API:
+        2 - Пользователь подтвердил вход,
+        1 - Пользователь пришёл, услуги оказаны,
+        0 - пользователь ждет,
+        -1 - пользователь не пришёл в гости
+        :param cid: идентификатор клиента
+        :param visits_per_page: размер страницы
+        :param session: По умолчанию нет, но если мы получим посещения нескольких клиентов,
+        мы хотим использовать один и тот же сеанс для всех из них
+        :return: данные всех посещений клиента cid, где поле посещаемости равно 1
+
+get_attended_visits_dates_information:
+        :param cids_lists: список идентификаторов клиентов
+        :param visits_per_page: размер страницы
+        :param session: По умолчанию нет, но если мы получим посещения нескольких клиентов,
+        мы хотим использовать один и тот же сеанс для всех из них
+        :return: Кадр данных со столбцами:
+            - id: идентификатор клиента
+            - visits_number: количество посещений.
+            - first_visit: дата первого визита клиента
+            - last_visit: дата последнего визита клиента.
